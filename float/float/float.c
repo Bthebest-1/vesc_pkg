@@ -2961,6 +2961,10 @@ void flywheel_stop(data *d)
 	configure(d);
 }
 
+
+static bool (*uart_start)(uint32_t baudrate, bool half_duplex);
+static bool (*uart_write)(uint8_t *data, uint32_t size);
+
 // Handler for incoming app commands
 static void on_command_received(unsigned char *buffer, unsigned int len) {
 	data *d = (data*)ARG;
@@ -2974,10 +2978,17 @@ static void on_command_received(unsigned char *buffer, unsigned int len) {
 		return;
 	}
 	if (magicnr != 101) {
-		if (!VESC_IF->app_is_output_disabled()) {
-			VESC_IF->printf("Float App: Wrong magic number %d\n", magicnr);
+
+		if (magicnr == 102) {
+			VESC_IF->uart_write(buffer, len);
+			return;
 		}
-		return;
+		else {
+			if (!VESC_IF->app_is_output_disabled()) {
+				VESC_IF->printf("Float App: Wrong magic number %d\n", magicnr);
+			}
+			return;
+		}
 	}
 
 	switch(command) {
@@ -3222,6 +3233,7 @@ INIT_FUN(lib_info *info) {
 	VESC_IF->set_app_data_handler(on_command_received);
 	VESC_IF->lbm_add_extension("ext-float-dbg", ext_bal_dbg);
 	VESC_IF->lbm_add_extension("ext-set-fw-version", ext_set_fw_version);
+	VESC_IF->uart_start(115200, false);
 
 	return true;
 }
