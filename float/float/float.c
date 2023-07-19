@@ -2962,8 +2962,6 @@ void flywheel_stop(data *d)
 }
 
 
-static bool (*uart_start)(uint32_t baudrate, bool half_duplex);
-static bool (*uart_write)(uint8_t *data, uint32_t size);
 
 // Handler for incoming app commands
 static void on_command_received(unsigned char *buffer, unsigned int len) {
