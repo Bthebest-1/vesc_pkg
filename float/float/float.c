@@ -25,6 +25,7 @@
 #include "conf/confxml.h"
 #include "conf/buffer.h"
 #include "conf/conf_default.h"
+#include "conf/crc.h"
 
 #include <math.h>
 #include <string.h>
@@ -254,9 +255,10 @@ static void cmd_flywheel_toggle(data *d, unsigned char *cfg, int len);
  * BUZZER / BEEPER on Servo Pin
  */
 const VESC_PIN buzzer_pin = VESC_PIN_PPM;
-
-#define EXT_BUZZER_ON()  VESC_IF->io_write(buzzer_pin, 1)
-#define EXT_BUZZER_OFF() VESC_IF->io_write(buzzer_pin, 0)
+uint8_t LCM_BUZZER_ON[] = {0x02, 0x03, 0x24, 0x66, 0xf0, 0x14, 0x95, 0x03};
+uint8_t LCM_BUZZER_OFF[] =  {0x02, 0x03, 0x24, 0x66, 0xf1, 0x04, 0xb4, 0x03};
+#define EXT_BUZZER_ON()  VESC_IF->uart_write(LCM_BUZZER_ON, 8) //buzzer on command = f0 //VESC_IF->io_write(buzzer_pin, 1)
+#define EXT_BUZZER_OFF() VESC_IF->uart_write(LCM_BUZZER_OFF, 8) //VESC_IF->io_write(buzzer_pin, 0)
 
 void buzzer_init()
 {
@@ -2962,6 +2964,8 @@ void flywheel_stop(data *d)
 }
 
 
+//static bool (*uart_start)(uint32_t baudrate, bool half_duplex);
+//static bool (*uart_write)(uint8_t *data, uint32_t size);
 
 // Handler for incoming app commands
 static void on_command_received(unsigned char *buffer, unsigned int len) {
@@ -2969,7 +2973,7 @@ static void on_command_received(unsigned char *buffer, unsigned int len) {
 	uint8_t magicnr = buffer[0];
 	uint8_t command = buffer[1];
 
-	if(len < 2){
+	if(len < 1){
 		if (!VESC_IF->app_is_output_disabled()) {
 			VESC_IF->printf("Float App: Missing Args\n");
 		}
@@ -2978,7 +2982,40 @@ static void on_command_received(unsigned char *buffer, unsigned int len) {
 	if (magicnr != 101) {
 
 		if (magicnr == 102) {
-			VESC_IF->uart_write(buffer, len);
+			if (!VESC_IF->app_is_output_disabled()) {
+				VESC_IF->printf("Float App: LCM magic number %d\n", magicnr);
+			}
+
+			//Supported - messages len 2 or 3
+			//So either command, or command and value
+			if (len == 3) {
+				uint8_t value = buffer[2];
+				unsigned char crc[] = {0x24, 0x66, command, value};
+				unsigned short checksum = crc16(crc, len);
+				uint8_t data[] = {0x02, len + 1, 0x24, 0x66, command, value, (uint8_t)(checksum >> 8), (uint8_t)(checksum & 0xFF),0x03};
+				//for debug purposes
+				VESC_IF->send_app_data(data, len + 1 + 5);
+				VESC_IF->uart_write(data , len + 1 + 5);
+
+				
+			} else if (len == 2) {
+				unsigned char crc[] = {0x24, 0x66, command};
+				unsigned short checksum = crc16(crc, len);
+				uint8_t data[] = {0x02, len + 1, 0x24, 0x66, command, (uint8_t)(checksum >> 8), (uint8_t)(checksum & 0xFF),0x03};
+				//for debug purposes
+				VESC_IF->send_app_data(data, len + 1 + 5);
+				VESC_IF->uart_write(data , len + 1 + 5);
+				
+			}
+
+			//uint8_t data[] = {0x02, 0x03, 0x24, 0x66, 0x00, 0xfb, 0x8a, 0x03};
+			//VESC_IF->uart_write(data, 8);
+			//00 = change gear
+			//01, [value] = change brightness headlight
+			//02, [value] = change brightness lightbar
+
+			//f0 = buzzer off
+			//f1 = buzzer on
 			return;
 		}
 		else {
@@ -3231,7 +3268,7 @@ INIT_FUN(lib_info *info) {
 	VESC_IF->set_app_data_handler(on_command_received);
 	VESC_IF->lbm_add_extension("ext-float-dbg", ext_bal_dbg);
 	VESC_IF->lbm_add_extension("ext-set-fw-version", ext_set_fw_version);
-	VESC_IF->uart_start(115200, false);
+	VESC_IF->uart_start(115200, false); //Initialise the LCM at a baudrate of 115200
 
 	return true;
 }
