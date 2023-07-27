@@ -17,13 +17,16 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
     */
 
-#include "crc.h"
-#ifndef NO_STM32
-#include "stm32f4xx.h"
-#endif
 
-// CRC Table
-const unsigned short crc16_tab[] = { 0x0000, 0x1021, 0x2042, 0x3063, 0x4084,
+#include "crc.h"
+
+
+
+
+unsigned short crc16(unsigned char *buf, unsigned int len) {
+
+	// CRC Table
+	const unsigned short crc16_tab[] = { 0x0000, 0x1021, 0x2042, 0x3063, 0x4084,
 		0x50a5, 0x60c6, 0x70e7, 0x8108, 0x9129, 0xa14a, 0xb16b, 0xc18c, 0xd1ad,
 		0xe1ce, 0xf1ef, 0x1231, 0x0210, 0x3273, 0x2252, 0x52b5, 0x4294, 0x72f7,
 		0x62d6, 0x9339, 0x8318, 0xb37b, 0xa35a, 0xd3bd, 0xc39c, 0xf3ff, 0xe3de,
@@ -52,8 +55,6 @@ const unsigned short crc16_tab[] = { 0x0000, 0x1021, 0x2042, 0x3063, 0x4084,
 		0x9de8, 0x8dc9, 0x7c26, 0x6c07, 0x5c64, 0x4c45, 0x3ca2, 0x2c83, 0x1ce0,
 		0x0cc1, 0xef1f, 0xff3e, 0xcf5d, 0xdf7c, 0xaf9b, 0xbfba, 0x8fd9, 0x9ff8,
 		0x6e17, 0x7e36, 0x4e55, 0x5e74, 0x2e93, 0x3eb2, 0x0ed1, 0x1ef0 };
-
-unsigned short crc16(unsigned char *buf, unsigned int len) {
 	unsigned int i;
 	unsigned short cksum = 0;
 	for (i = 0; i < len; i++) {
@@ -61,32 +62,3 @@ unsigned short crc16(unsigned char *buf, unsigned int len) {
 	}
 	return cksum;
 }
-
-#ifndef NO_STM32
-/**
-  * @brief  Computes the 32-bit CRC of a given buffer of data word(32-bit) using
-  * Hardware Acceleration.
-  * @param  pBuffer: pointer to the buffer containing the data to be computed
-  * @param  BufferLength: length of the buffer to be computed
-  * @retval 32-bit CRC
-  */
-uint32_t crc32(uint32_t *pBuffer, uint32_t BufferLength) {
-	uint32_t index = 0;
-
-	for(index = 0; index < BufferLength; index++) {
-		CRC->DR = pBuffer[index];
-	}
-
-	return (CRC->DR);
-}
-
-/**
-  * @brief  Resets the CRC Data register (DR).
-  * @param  None
-  * @retval None
-  */
-void crc32_reset(void) {
-	/* Reset CRC generator */
-	CRC->CR |= CRC_CR_RESET;
-}
-#endif
