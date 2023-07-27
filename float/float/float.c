@@ -2985,7 +2985,12 @@ static void on_command_received(unsigned char *buffer, unsigned int len) {
 			if (!VESC_IF->app_is_output_disabled()) {
 				VESC_IF->printf("Float App: LCM magic number %d\n", magicnr);
 			}
-
+			if (command == 255) {
+				unsigned char crc[] = {0x24, 0x66, 255, (uint8_t) (10 * d->fault_adc1), (uint8_t) (10 * d->fault_adc2)};
+				unsigned short checksum = crc16(crc, 5);
+				uint8_t data[] = {0x02, 0x05, 0x24, 0x66, 255, (uint8_t) (10 * d->fault_adc1),(uint8_t) (10 * d->fault_adc2), (uint8_t)(checksum >> 8), (uint8_t)(checksum & 0xFF),0x03};
+				VESC_IF->uart_write(data , 5 + 5);
+			}
 			//Supported - messages len 2 or 3
 			//So either command, or command and value
 			if (len == 3) {
