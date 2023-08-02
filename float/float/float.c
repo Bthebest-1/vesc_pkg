@@ -256,16 +256,26 @@ static void cmd_flywheel_toggle(data *d, unsigned char *cfg, int len);
  * BUZZER / BEEPER on Servo Pin
  */
 const VESC_PIN buzzer_pin = VESC_PIN_PPM;
-uint8_t LCM_BUZZER_ON[] = {0x02, 0x03, 0x24, 0x66, 0xf0, 0x14, 0x95, 0x03};  //Predefined message to start buzzer on the Floatwheel LCM
-uint8_t LCM_BUZZER_OFF[] =  {0x02, 0x03, 0x24, 0x66, 0xf1, 0x04, 0xb4, 0x03}; //Predefined message to start buzzer on the Floatwheel LCM
-#define EXT_BUZZER_ON()  VESC_IF->uart_write(LCM_BUZZER_ON, 8) //buzzer on command = f0 //VESC_IF->io_write(buzzer_pin, 1)
-#define EXT_BUZZER_OFF() VESC_IF->uart_write(LCM_BUZZER_OFF, 8) //buzzer on command = f1 //VESC_IF->io_write(buzzer_pin, 0)
+//uint8_t LCM_BUZZER_ON[] = {0x02, 0x03, 0x24, 0x66, 0xf0, 0x14, 0x95, 0x03};  //Predefined message to start buzzer on the Floatwheel LCM
+//uint8_t LCM_BUZZER_OFF[] =  {0x02, 0x03, 0x24, 0x66, 0xf1, 0x04, 0xb4, 0x03}; //Predefined message to start buzzer on the Floatwheel LCM
+#define EXT_BUZZER_ON()  VESC_IF->io_write(buzzer_pin, 1)//VESC_IF->uart_write(LCM_BUZZER_ON, 8) //buzzer on command = f0 //VESC_IF->io_write(buzzer_pin, 1)
+#define EXT_BUZZER_OFF() VESC_IF->io_write(buzzer_pin, 0)//VESC_IF->uart_write(LCM_BUZZER_OFF, 8) //buzzer on command = f1 //VESC_IF->io_write(buzzer_pin, 0)
 
 void buzzer_init()
 {
 	VESC_IF->io_set_mode(buzzer_pin, VESC_PIN_MODE_OUTPUT);
 }
 
+void floatwheel_buzzer(bool on){
+	uint8_t LCM_BUZZER_ON[8] = {0x02, 0x03, 0x24, 0x66, 0xf0, 0x14, 0x95, 0x03};
+	uint8_t LCM_BUZZER_OFF[8] =  {0x02, 0x03, 0x24, 0x66, 0xf1, 0x04, 0xb4, 0x03};
+	if (on) {
+		VESC_IF->uart_write(LCM_BUZZER_ON, 8);
+	}
+	else {
+		VESC_IF->uart_write(LCM_BUZZER_OFF, 8);
+	}
+}
 void buzzer_update(data *d)
 {
 	if (d->buzzer_enabled && (d->beep_num_left > 0)) {
@@ -273,10 +283,15 @@ void buzzer_update(data *d)
 		if (d->beep_countdown <= 0) {
 			d->beep_countdown = d->beep_duration;
 			d->beep_num_left--;	
-			if (d->beep_num_left & 0x1)
+			if (d->beep_num_left & 0x1) {
 				EXT_BUZZER_ON();
-			else
+				floatwheel_buzzer(true);
+			}
+			else 
+			{
 				EXT_BUZZER_OFF();
+				floatwheel_buzzer(false);
+			}
 		}
 	}
 }
@@ -303,8 +318,11 @@ void beep_alert(data *d, int num_beeps, bool longbeep)
 void beep_off(data *d, bool force)
 {
 	// don't mess with the buzzer if we're in the process of doing a multi-beep
-	if (force || (d->beep_num_left == 0))
+	if (force || (d->beep_num_left == 0)) 
+	{
+		floatwheel_buzzer(false);
 		EXT_BUZZER_OFF();
+	}
 }
 
 void beep_on(data *d, bool force)
@@ -313,7 +331,10 @@ void beep_on(data *d, bool force)
 		return;
 	// don't mess with the buzzer if we're in the process of doing a multi-beep
 	if (force || (d->beep_num_left == 0))
+	{
 		EXT_BUZZER_ON();
+		floatwheel_buzzer(true);
+	}
 }
 
 // Utility Functions
